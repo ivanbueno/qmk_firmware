@@ -86,6 +86,7 @@ enum custom_keycodes {
     MACRO_CTRL_3,
     MACRO_CMD_Q,
     MACRO_SCREENSHOT,
+    MACRO_CLICK_HOLD,
 };
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
@@ -120,6 +121,18 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             }
             return false;
             break;
+        case MACRO_CLICK_HOLD:
+            if (record->event.pressed) {  // When CTRL_SHIFT is pressed.
+                static bool held = false;  // Static variable to remember state.
+                held = !held;  // Toggle between holding and releasing.
+                if (held) {  // Press Ctrl-Shift.
+                    register_code(KC_BTN1);
+                } else {  // Release Ctrl-Shift.
+                    unregister_code(KC_BTN1);
+                }
+            }
+            return false;
+            break;
     }
     return true;
 };
@@ -128,7 +141,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [0] = LAYOUT(KC_BTN1, TD(TD_MIDDLECLICK), LT(2,KC_BTN2), LT(1,KC_BTN4), TD(TD_DRAGSCROLL), KC_ESC),
     [1] = LAYOUT(MACRO_CTRL_1, MACRO_CTRL_2, MACRO_CTRL_3, KC_TRNS, KC_TRNS, DPI_CONFIG),
     [2] = LAYOUT(TD(TD_COPYPASTE), TD(TD_CUTPASTE), KC_TRNS, KC_BTN5, KC_TRNS, KC_TRNS),
-    [3] = LAYOUT(MACRO_SCREENSHOT, KC_TRNS, KC_TRNS, MACRO_CMD_Q, KC_TRNS, KC_TRNS),
+    [3] = LAYOUT(MACRO_CLICK_HOLD, KC_TRNS, KC_TRNS, MACRO_CMD_Q, MACRO_SCREENSHOT, KC_TRNS),
 };
 
 // Handle the possible states for each tapdance keycode you define:
