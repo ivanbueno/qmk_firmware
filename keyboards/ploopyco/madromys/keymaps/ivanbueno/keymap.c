@@ -25,6 +25,7 @@ enum {
     TD_COPYPASTE,
     TD_CUTPASTE,
     TD_DRAGSCROLL,
+    TD_MIDDLECLICK,
 };
 
 // Define a type containing as many tapdance states as you need
@@ -37,6 +38,9 @@ typedef enum {
     TD_CUTPASTE_SINGLE_HOLD,
     TD_DRAGSCROLL_SINGLE_TAP,
     TD_DRAGSCROLL_SINGLE_HOLD,
+    TD_MIDDLECLICK_SINGLE_TAP,
+    TD_MIDDLECLICK_DOUBLE_TAP,
+    TD_MIDDLECLICK_SINGLE_HOLD,
 } td_state_t;
 
 // Create a global instance of the tapdance state type
@@ -52,6 +56,8 @@ void cutpaste_finished(tap_dance_state_t *state, void *user_data);
 void cutpaste_reset(tap_dance_state_t *state, void *user_data);
 void dragscroll_finished(tap_dance_state_t *state, void *user_data);
 void dragscroll_reset(tap_dance_state_t *state, void *user_data);
+void middleclick_finished(tap_dance_state_t *state, void *user_data);
+void middleclick_reset(tap_dance_state_t *state, void *user_data);
 
 void tdfn_middle_click(tap_dance_state_t *state, void *user_data) {
     switch (state->count) {
@@ -70,38 +76,20 @@ tap_dance_action_t tap_dance_actions[] = {
     [TD_COPYPASTE] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, copypaste_finished, copypaste_reset),
     [TD_CUTPASTE] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, cutpaste_finished, cutpaste_reset),
     [TD_DRAGSCROLL] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, dragscroll_finished, dragscroll_reset),
+    [TD_MIDDLECLICK] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, middleclick_finished, middleclick_reset),
 
 };
 
 enum custom_keycodes {
-    MACRO_CTRL_SHIFT_T = SAFE_RANGE,
-    MACRO_CTRL_C,
-    MACRO_CTRL_V,
-    MACRO_CTRL_1,
+    MACRO_CTRL_1 = SAFE_RANGE,
     MACRO_CTRL_2,
     MACRO_CTRL_3,
-    MACRO_DRAGSCROLL_HOLD,
+    MACRO_CMD_Q,
+    MACRO_SCREENSHOT,
 };
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
-        case MACRO_CTRL_SHIFT_T:
-            if (record->event.pressed) {
-                SEND_STRING(SS_LGUI(SS_LSFT("t")));
-            }
-            break;
-        case MACRO_CTRL_C:
-            if (record->event.pressed) {
-                SEND_STRING(SS_LGUI("c"));
-            }
-            return false;
-            break;
-        case MACRO_CTRL_V:
-            if (record->event.pressed) {
-                SEND_STRING(SS_LGUI("v"));
-            }
-            return false;
-            break;
         case MACRO_CTRL_1:
             if (record->event.pressed) {
                 SEND_STRING(SS_LCTL("1"));
@@ -120,8 +108,16 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             }
             return false;
             break;
-        case MACRO_DRAGSCROLL_HOLD:
-            is_drag_scroll = record->event.pressed;
+        case MACRO_CMD_Q:
+            if (record->event.pressed) {
+                SEND_STRING(SS_LGUI("q"));
+            }
+            return false;
+            break;
+        case MACRO_SCREENSHOT:
+            if (record->event.pressed) {
+                SEND_STRING(SS_LGUI(SS_LSFT("4")));
+            }
             return false;
             break;
     }
@@ -129,10 +125,10 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 };
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
-    [0] = LAYOUT(KC_BTN1, TD(TD_MIDDLE_CLICK), LT(2,KC_BTN2), LT(1,KC_BTN4), TD(TD_DRAGSCROLL), KC_ESC),
+    [0] = LAYOUT(KC_BTN1, TD(TD_MIDDLECLICK), LT(2,KC_BTN2), LT(1,KC_BTN4), TD(TD_DRAGSCROLL), KC_ESC),
     [1] = LAYOUT(MACRO_CTRL_1, MACRO_CTRL_2, MACRO_CTRL_3, KC_TRNS, KC_TRNS, DPI_CONFIG),
     [2] = LAYOUT(TD(TD_COPYPASTE), TD(TD_CUTPASTE), KC_TRNS, KC_BTN5, KC_TRNS, KC_TRNS),
-    // [3] = LAYOUT(MACRO_CTRL_SHIFT_T, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS),
+    [3] = LAYOUT(MACRO_SCREENSHOT, KC_TRNS, KC_TRNS, MACRO_CMD_Q, KC_TRNS, KC_TRNS),
 };
 
 // Handle the possible states for each tapdance keycode you define:
@@ -157,6 +153,16 @@ td_state_t cur_dance(tap_dance_state_t *state, int key) {
             if (state->count == 1) {
                 if (state->interrupted || !state->pressed) return TD_DRAGSCROLL_SINGLE_TAP;
                 else return TD_DRAGSCROLL_SINGLE_HOLD;
+            }
+            else return TD_UNKNOWN;
+            break;
+        case TD_MIDDLECLICK:
+            if (state->count == 1) {
+                if (state->interrupted || !state->pressed) return TD_MIDDLECLICK_SINGLE_TAP;
+                else return TD_MIDDLECLICK_SINGLE_HOLD;
+            }
+            else if (state->count == 2) {
+                if (state->interrupted || !state->pressed) return TD_MIDDLECLICK_DOUBLE_TAP;
             }
             else return TD_UNKNOWN;
             break;
@@ -220,7 +226,6 @@ void cutpaste_reset(tap_dance_state_t *state, void *user_data) {
     }
 }
 
-
 void dragscroll_finished(tap_dance_state_t *state, void *user_data) {
     td_state = cur_dance(state, TD_DRAGSCROLL);
     switch (td_state) {
@@ -241,6 +246,39 @@ void dragscroll_reset(tap_dance_state_t *state, void *user_data) {
             break;
         case TD_DRAGSCROLL_SINGLE_HOLD:
             is_drag_scroll = false;
+            break;
+        default:
+            break;
+    }
+}
+
+void middleclick_finished(tap_dance_state_t *state, void *user_data) {
+    td_state = cur_dance(state, TD_MIDDLECLICK);
+    switch (td_state) {
+        case TD_MIDDLECLICK_SINGLE_TAP:
+            register_code(KC_BTN3);
+            break;
+        case TD_MIDDLECLICK_SINGLE_HOLD:
+            layer_on(3);
+            break;
+        case TD_MIDDLECLICK_DOUBLE_TAP:
+            register_code(KC_LGUI); register_code(KC_LSFT); register_code(KC_T);
+            break;
+        default:
+            break;
+    }
+}
+
+void middleclick_reset(tap_dance_state_t *state, void *user_data) {
+    switch (td_state) {
+        case TD_MIDDLECLICK_SINGLE_TAP:
+            unregister_code(KC_BTN3);
+            break;
+        case TD_MIDDLECLICK_SINGLE_HOLD:
+            layer_off(3);
+            break;
+        case TD_MIDDLECLICK_DOUBLE_TAP:
+            unregister_code(KC_T); unregister_code(KC_LGUI); unregister_code(KC_LSFT);
             break;
         default:
             break;
